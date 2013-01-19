@@ -71,6 +71,18 @@ static long madvise_behavior(struct vm_area_struct * vma,
 		if (error)
 			goto out;
 		break;
+#ifdef CONFIG_PLPC
+	case MADV_PAGE_REUSE:
+		//TODO remove print
+		//printk(KERN_DEBUG "PLPC - Madvise current vma : %p, enable",vma);
+		new_flags |= VM_PAGE_REUSE;
+		break;
+	case MADV_NO_PAGE_REUSE:
+		//TODO remove print
+		//printk(KERN_DEBUG "PLPC - Madvise current vma : %p, disable",vma);
+		new_flags &= ~VM_PAGE_REUSE;
+		break;
+#endif //CONFIG_PLPC
 	}
 
 	if (new_flags == vma->vm_flags) {
@@ -279,6 +291,10 @@ madvise_behavior_valid(int behavior)
 	case MADV_REMOVE:
 	case MADV_WILLNEED:
 	case MADV_DONTNEED:
+#ifdef CONFIG_PLPC
+	case MADV_PAGE_REUSE:
+	case MADV_NO_PAGE_REUSE:
+#endif
 #ifdef CONFIG_KSM
 	case MADV_MERGEABLE:
 	case MADV_UNMERGEABLE:

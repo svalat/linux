@@ -652,7 +652,7 @@ int do_huge_pmd_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 			       unsigned long address, pmd_t *pmd,
 			       unsigned int flags)
 {
-	struct page *page;
+	struct page *page = NULL;
 	unsigned long haddr = address & HPAGE_PMD_MASK;
 	pte_t *pte;
 
@@ -661,8 +661,20 @@ int do_huge_pmd_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 			return VM_FAULT_OOM;
 		if (unlikely(khugepaged_enter(vma)))
 			return VM_FAULT_OOM;
-		page = alloc_hugepage_vma(transparent_hugepage_defrag(vma),
-					  vma, haddr, numa_node_id(), 0);
+		
+		#ifdef CONFIG_PLPC
+		if (vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
+		{
+			//printk(KERN_DEBUG "PLPC - Use plpc get page, not enabled (VMA=%p , vm_mm=%p)",vma,vma->vm_mm);
+			page = plpc_get_huge_page(&vma->vm_mm->plpc,vma,address);
+		}
+		
+		if (page == NULL)
+			page = alloc_hugepage_vma(transparent_hugepage_defrag(vma),vma, haddr, numa_node_id(), 0);
+		#else
+		page = alloc_hugepage_vma(transparent_hugepage_defrag(vma),vma, haddr, numa_node_id(), 0);
+		#endif
+		
 		if (unlikely(!page)) {
 			count_vm_event(THP_FAULT_FALLBACK);
 			goto out;

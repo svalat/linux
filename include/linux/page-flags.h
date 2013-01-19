@@ -111,6 +111,9 @@ enum pageflags {
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	PG_compound_lock,
 #endif
+#ifdef CONFIG_PLPC
+	PG_reuse,
+#endif //CONFIG_PLPC
 	__NR_PAGEFLAGS,
 
 	/* Filesystems */
@@ -214,6 +217,10 @@ PAGEFLAG(Pinned, pinned) TESTSCFLAG(Pinned, pinned)	/* Xen */
 PAGEFLAG(SavePinned, savepinned);			/* Xen */
 PAGEFLAG(Reserved, reserved) __CLEARPAGEFLAG(Reserved, reserved)
 PAGEFLAG(SwapBacked, swapbacked) __CLEARPAGEFLAG(SwapBacked, swapbacked)
+
+#ifdef CONFIG_PLPC
+PAGEFLAG(Reuse, reuse)
+#endif
 
 __PAGEFLAG(SlobFree, slob_free)
 

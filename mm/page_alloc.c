@@ -1152,13 +1152,37 @@ static void free_hot_cold_page(struct page *page, int cold)
 	unsigned long flags;
 	int migratetype;
 	int wasMlocked = __TestClearPageMlocked(page);
+#ifdef CONFIG_PLPC
+	int reuse = 0;
+#endif
 
 	kmemcheck_free_shadow(page, 0);
+	
+#ifdef CONFIG_PLPC
+	//TODO avoid this two phase approach, need check free_page_check to not remove the page flag.
+	if (PageReuse(page))
+	{
+		PLPC_DEBUG("OK, before capture the page... vm = %p",get_current()->mm);
+		reuse = 1;
+		ClearPageReuse(page);
+	}
+#endif
 
 	if (PageAnon(page))
 		page->mapping = NULL;
 	if (free_pages_check(page))
 		return;
+	
+#ifdef CONFIG_PLPC
+	if (PageReuse(page) || reuse)
+	{
+		SetPageReuse(page);
+		atomic_inc(&page->_count);
+		PLPC_DEBUG("OK, capture the page... %p",page);
+		plpc_reg_page(&get_current()->mm->plpc,page);
+		return;
+	}
+#endif
 
 	if (!PageHighMem(page)) {
 		debug_check_no_locks_freed(page_address(page), PAGE_SIZE);

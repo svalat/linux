@@ -113,6 +113,8 @@ extern unsigned int kobjsize(const void *objp);
 #define VM_HUGEPAGE	0x100000000UL	/* MADV_HUGEPAGE marked this vma */
 #endif
 
+#define VM_PAGE_REUSE  0x100000000  /* Enable usage of PLPC to get pages */
+
 /* Bits set in the VMA until the stack is in its final location */
 #define VM_STACK_INCOMPLETE_SETUP	(VM_RAND_READ | VM_SEQ_READ)
 
@@ -1253,7 +1255,7 @@ extern unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	unsigned long flag, unsigned long pgoff);
 extern unsigned long mmap_region(struct file *file, unsigned long addr,
 	unsigned long len, unsigned long flags,
-	unsigned int vm_flags, unsigned long pgoff);
+	unsigned long vm_flags, unsigned long pgoff);
 
 static inline unsigned long do_mmap(struct file *file, unsigned long addr,
 	unsigned long len, unsigned long prot,

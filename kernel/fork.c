@@ -66,6 +66,7 @@
 #include <linux/posix-timers.h>
 #include <linux/user-return-notifier.h>
 #include <linux/khugepaged.h>
+#include <linux/mm_plpc.h>
 #include <linux/oom.h>
 
 #include <asm/pgtable.h>
@@ -482,6 +483,9 @@ static struct mm_struct * mm_init(struct mm_struct * mm, struct task_struct *p)
 	if (likely(!mm_alloc_pgd(mm))) {
 		mm->def_flags = 0;
 		mmu_notifier_mm_init(mm);
+#ifdef CONFIG_PLPC
+		plpc_vm_init(&mm->plpc);
+#endif
 		return mm;
 	}
 
@@ -518,6 +522,9 @@ void __mmdrop(struct mm_struct *mm)
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	VM_BUG_ON(mm->pmd_huge_pte);
 #endif
+#ifdef CONFIG_PLPC
+	plpc_vm_release(&mm->plpc);
+#endif //CONFIG_PLPC
 	free_mm(mm);
 }
 EXPORT_SYMBOL_GPL(__mmdrop);
@@ -680,6 +687,10 @@ struct mm_struct *dup_mm(struct task_struct *tsk)
 
 	if (mm->binfmt && !try_module_get(mm->binfmt->module))
 		goto free_pt;
+
+#ifdef CONFIG_PLPC
+	plpc_vm_fork(&mm->plpc,&oldmm->plpc);
+#endif //CONFIG_PLPC
 
 	return mm;
 

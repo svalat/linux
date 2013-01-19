@@ -296,6 +296,16 @@ config NOMMU_INITIAL_TRIM_EXCESS
 
 	  See Documentation/nommu-mmap.txt for more information.
 
+config PLPC
+	bool "Process Local Page Cache"
+	default n
+	depends on EXPERIMENTAL
+	help
+		Enable or disable Process Local Page Cache (PLPC).
+		Add a local page cache into task structure to limit usage of clear_page().
+
+		If unsure, say N to disable PLPC
+
 config TRANSPARENT_HUGEPAGE
 	bool "Transparent Hugepage support" if EMBEDDED
 	depends on X86_64

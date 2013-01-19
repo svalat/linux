@@ -1001,7 +1001,7 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 {
 	struct mm_struct * mm = current->mm;
 	struct inode *inode;
-	unsigned int vm_flags;
+	unsigned long vm_flags;
 	int error;
 	unsigned long reqprot = prot;
 
@@ -1123,6 +1123,13 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 		}
 	}
 
+	//enable page reuse (PLPC)
+	if ((flags & MAP_PAGE_REUSE))
+	{
+		//printk(KERN_DEBUG "PLPC - Enable support of PLPC on mmap");
+		vm_flags |= VM_PAGE_REUSE;
+	}
+
 	error = security_file_mmap(file, reqprot, prot, flags, addr, 0);
 	if (error)
 		return error;
@@ -1181,7 +1188,7 @@ static inline int accountable_mapping(struct file *file, unsigned int vm_flags)
 
 unsigned long mmap_region(struct file *file, unsigned long addr,
 			  unsigned long len, unsigned long flags,
-			  unsigned int vm_flags, unsigned long pgoff)
+			  unsigned long vm_flags, unsigned long pgoff)
 {
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma, *prev;
@@ -1190,6 +1197,8 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	struct rb_node **rb_link, *rb_parent;
 	unsigned long charged = 0;
 	struct inode *inode =  file ? file->f_path.dentry->d_inode : NULL;
+
+	//if ((flags & MAP_PAGE_REUSE)) printk(KERN_DEBUG "PLPC - OK, just start region , vm_flags = %lu",vm_flags);
 
 	/* Clear old maps */
 	error = -ENOMEM;
@@ -1229,12 +1238,16 @@ munmap_back:
 		vm_flags |= VM_ACCOUNT;
 	}
 
+	//if ((flags & MAP_PAGE_REUSE)) printk(KERN_DEBUG "PLPC - OK, before vma_merge , vm_flags = %lu",vm_flags);
+
 	/*
 	 * Can we just expand an old mapping?
 	 */
 	vma = vma_merge(mm, prev, addr, addr + len, vm_flags, NULL, file, pgoff, NULL);
 	if (vma)
 		goto out;
+
+	//if ((flags & MAP_PAGE_REUSE)) printk(KERN_DEBUG "PLPC - OK, no use vma_merge , vm_flags = %lu",vm_flags);
 
 	/*
 	 * Determine the object being mapped and call the appropriate
@@ -1311,6 +1324,8 @@ out:
 		mm->locked_vm += (len >> PAGE_SHIFT) - nr_pages;
 	} else if ((flags & MAP_POPULATE) && !(flags & MAP_NONBLOCK))
 		make_pages_present(addr, addr + len);
+
+	//if ((flags & MAP_PAGE_REUSE)) printk(KERN_DEBUG "PLPC - OK, end of function, vm_flags = %lu, vma->vm_flags = %lu, vma = %p",vm_flags,vma->vm_flags,vma);
 	return addr;
 
 unmap_and_free_vma:

@@ -12,6 +12,7 @@
 #include <linux/completion.h>
 #include <linux/cpumask.h>
 #include <linux/page-debug-flags.h>
+#include <linux/mm_plpc.h>
 #include <asm/page.h>
 #include <asm/mmu.h>
 
@@ -296,6 +297,9 @@ struct mm_struct {
 #endif
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	pgtable_t pmd_huge_pte; /* protected by page_table_lock */
+#endif
+#ifdef CONFIG_PLPC
+	struct plpc plpc;
 #endif
 	/* reserved for Red Hat */
 #ifdef __GENKSYMS__
