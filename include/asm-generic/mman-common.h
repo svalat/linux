@@ -39,6 +39,8 @@
 
 #define MADV_MERGEABLE   12		/* KSM may merge identical pages */
 #define MADV_UNMERGEABLE 13		/* KSM may not merge identical pages */
+#define MADV_PAGE_REUSE	14		/* Enable page reuse on the given VMA. */
+#define MADV_NO_PAGE_REUSE	15		/* Disable page reuse on the given VMA. */
 
 /* compatibility flags */
 #define MAP_FILE	0

@@ -56,6 +56,7 @@
 #include <linux/kallsyms.h>
 #include <linux/swapops.h>
 #include <linux/elf.h>
+#include <linux/mm_plpc.h>
 
 #include <asm/io.h>
 #include <asm/pgalloc.h>
@@ -902,7 +903,7 @@ static unsigned long zap_pte_range(struct mmu_gather *tlb,
 			page_remove_rmap(page);
 			if (unlikely(page_mapcount(page) < 0))
 				print_bad_pte(vma, addr, ptent, page);
-			tlb_remove_page(tlb, page);
+			tlb_remove_page(vma,tlb, page);
 			continue;
 		}
 		/*
@@ -2879,7 +2880,18 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	/* Allocate our own private page. */
 	if (unlikely(anon_vma_prepare(vma)))
 		goto oom;
+	#ifdef CONFIG_PLPC
+	if (vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
+	{
+		//printk(KERN_DEBUG "PLPC - Use plpc get page, not enabled (VMA=%p , vm_mm=%p)",vma,vma->vm_mm);
+		page = plpc_get_page(&vma->vm_mm->plpc,vma,address);
+	} else {
+		//printk(KERN_DEBUG "PLPC - Skip plpc get page, not enabled (VMA=%p , vm_mm=%p)",vma,vma->vm_mm);
+		page = alloc_zeroed_user_highpage_movable(vma, address);
+	}
+	#else //CONFIG_PLPC
 	page = alloc_zeroed_user_highpage_movable(vma, address);
+	#endif //CONFIG_PLPC
 	if (!page)
 		goto oom;
 	__SetPageUptodate(page);

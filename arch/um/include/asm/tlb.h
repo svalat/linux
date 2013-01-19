@@ -3,6 +3,7 @@
 
 #include <linux/pagemap.h>
 #include <linux/swap.h>
+#include <linux/mm_plpc.h>
 #include <asm/percpu.h>
 #include <asm/pgalloc.h>
 #include <asm/tlbflush.h>
@@ -96,10 +97,22 @@ tlb_finish_mmu(struct mmu_gather *tlb, unsigned long start, unsigned long end)
  *	while handling the additional races in SMP caused by other CPUs
  *	caching valid mappings in their TLBs.
  */
-static inline void tlb_remove_page(struct mmu_gather *tlb, struct page *page)
+static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather *tlb, struct page *page)
 {
 	tlb->need_flush = 1;
+#ifdef CONFIG_PLPC_SKIPED
+	//TODO avoid dupolication here
+	if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
+	{
+		printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
+		plpc_reg_page(&vma->vm_mm->plpc,page);
+	} else {
+		//printk(KERN_DEBUG "PLPC - skip page free, not enabled on VMA (%p)",vma);
+		free_page_and_swap_cache(page);
+	}
+#else
 	free_page_and_swap_cache(page);
+#endif
 	return;
 }
 

@@ -14,6 +14,7 @@
 #define _ASM_GENERIC__TLB_H
 
 #include <linux/swap.h>
+#include <linux/mm_plpc.h>
 #include <asm/pgalloc.h>
 #include <asm/tlbflush.h>
 
@@ -98,13 +99,35 @@ tlb_finish_mmu(struct mmu_gather *tlb, unsigned long start, unsigned long end)
  *	handling the additional races in SMP caused by other CPUs caching valid
  *	mappings in their TLBs.
  */
-static inline void tlb_remove_page(struct mmu_gather *tlb, struct page *page)
+static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather *tlb, struct page *page)
 {
 	tlb->need_flush = 1;
 	if (tlb_fast_mode(tlb)) {
+#ifdef CONFIG_PLPC_SKIPED
+	//TODO avoid dupolication here
+		if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
+		{
+			printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
+			plpc_reg_page(&vma->vm_mm->plpc,page);
+		} else {
+			printk(KERN_DEBUG "PLPC - skip page free, not enabled on VMA (%p)",vma);
+			free_page_and_swap_cache(page);
+		}
+#else
 		free_page_and_swap_cache(page);
+#endif
 		return;
 	}
+#ifdef CONFIG_PLPC_SKIPED
+	else if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
+	{
+			printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
+			plpc_reg_page(&vma->vm_mm->plpc,page);
+			//increase ref counter to avoid a free in tlb_flush_mmu, need to check that their is
+			//no side effects, otherwise wi need to patch tlb_flush_mmu.
+			get_page(page);
+	}
+#endif
 	tlb->pages[tlb->nr++] = page;
 	if (tlb->nr >= FREE_PTE_NR)
 		tlb_flush_mmu(tlb, 0, 0);
