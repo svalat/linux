@@ -103,14 +103,14 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 {
 	tlb->need_flush = 1;
 	if (tlb_fast_mode(tlb)) {
-#ifdef CONFIG_PLPC_SKIPED
+#ifdef CONFIG_PLPC //_SKIPED
 	//TODO avoid dupolication here
 		if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
 		{
 			printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
 			plpc_reg_page(&vma->vm_mm->plpc,page);
 		} else {
-			printk(KERN_DEBUG "PLPC - skip page free, not enabled on VMA (%p)",vma);
+			//printk(KERN_DEBUG "PLPC - skip page free, not enabled on VMA (%p)",vma);
 			free_page_and_swap_cache(page);
 		}
 #else
@@ -118,7 +118,7 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 #endif
 		return;
 	}
-#ifdef CONFIG_PLPC_SKIPED
+#ifdef CONFIG_PLPC //_SKIPED
 	else if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
 	{
 			printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);

@@ -84,6 +84,7 @@ static inline void mapping_set_gfp_mask(struct address_space *m, gfp_t mask)
 #define page_cache_get(page)		get_page(page)
 #define page_cache_release(page)	put_page(page)
 void release_pages(struct page **pages, int nr, int cold);
+void page_cache_release_plpc(struct page *page);
 
 /*
  * speculatively take a reference to a page.

@@ -100,12 +100,15 @@ tlb_finish_mmu(struct mmu_gather *tlb, unsigned long start, unsigned long end)
 static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather *tlb, struct page *page)
 {
 	tlb->need_flush = 1;
-#ifdef CONFIG_PLPC_SKIPED
+#ifdef CONFIG_PLPC //_SKIPED
 	//TODO avoid dupolication here
 	if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
 	{
+		//BUG_ON(true);
 		printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
 		plpc_reg_page(&vma->vm_mm->plpc,page);
+		//get_page(page);
+		free_page_and_swap_cache_plpc(page);
 	} else {
 		//printk(KERN_DEBUG "PLPC - skip page free, not enabled on VMA (%p)",vma);
 		free_page_and_swap_cache(page);

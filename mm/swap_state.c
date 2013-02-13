@@ -235,6 +235,16 @@ void free_page_and_swap_cache(struct page *page)
 	page_cache_release(page);
 }
 
+/* 
+ *  * Perform a free_page(), also freeing any swap cache associated with
+ *   * this page if it is the last user of the page.
+ *    */
+void free_page_and_swap_cache_plpc(struct page *page)
+{
+	free_swap_cache(page);
+        page_cache_release_plpc(page);
+}
+
 /*
  * Passed an array of pages, drop them all from swapcache and then release
  * them.  They are removed from the LRU and freed if this is their last use.

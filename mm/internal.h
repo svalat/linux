@@ -136,12 +136,13 @@ static inline void munlock_vma_pages_all(struct vm_area_struct *vma)
  */
 static inline int is_mlocked_vma(struct vm_area_struct *vma, struct page *page)
 {
-	VM_BUG_ON(PageLRU(page));
+	//VM_BUG_ON(PageLRU(page));
 
 	if (likely((vma->vm_flags & (VM_LOCKED | VM_SPECIAL)) != VM_LOCKED))
 		return 0;
 
 	if (!TestSetPageMlocked(page)) {
+		VM_BUG_ON(PageLRU(page));
 		inc_zone_page_state(page, NR_MLOCK);
 		count_vm_event(UNEVICTABLE_PGMLOCKED);
 	}
