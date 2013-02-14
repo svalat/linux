@@ -67,6 +67,19 @@ tlb_gather_mmu(struct mm_struct *mm, unsigned int full_mm_flush)
 }
 
 static inline void
+tlb_flush_mmu_plpc(struct mmu_gather *tlb, unsigned long start, unsigned long end)
+{
+	if (!tlb->need_flush)
+		return;
+	tlb->need_flush = 0;
+	tlb_flush(tlb);
+	if (!tlb_fast_mode(tlb)) {
+		free_pages_and_swap_cache_plpc(tlb->pages, tlb->nr);
+		tlb->nr = 0;
+	}
+}
+
+static inline void
 tlb_flush_mmu(struct mmu_gather *tlb, unsigned long start, unsigned long end)
 {
 	if (!tlb->need_flush)
@@ -107,8 +120,9 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 	//TODO avoid dupolication here
 		if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
 		{
-			printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
+			//printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
 			plpc_reg_page(&vma->vm_mm->plpc,page);
+			free_page_and_swap_cache_plpc(page);
 		} else {
 			//printk(KERN_DEBUG "PLPC - skip page free, not enabled on VMA (%p)",vma);
 			free_page_and_swap_cache(page);
@@ -121,11 +135,15 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 #ifdef CONFIG_PLPC //_SKIPED
 	else if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
 	{
-			printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
+			printk(KERN_DEBUG "PLPC - --> !tlbfastmode : page free, enabled on VMA (%p)",vma);
 			plpc_reg_page(&vma->vm_mm->plpc,page);
 			//increase ref counter to avoid a free in tlb_flush_mmu, need to check that their is
 			//no side effects, otherwise wi need to patch tlb_flush_mmu.
-			get_page(page);
+			//get_page(page);
+			//BUG_ON(true);//hummm need to do something here for the non SMT modei
+			tlb->pages[tlb->nr++] = page;
+			if (tlb->nr >= FREE_PTE_NR)
+				tlb_flush_mmu_plpc(tlb, 0, 0);
 	}
 #endif
 	tlb->pages[tlb->nr++] = page;
