@@ -567,7 +567,7 @@ void release_pages_plpc(struct page **pages, int nr, int cold)
 				spin_unlock_irqrestore(&zone->lru_lock, flags);
 				zone = NULL;
 			}
-			__pagevec_free(&pages_to_free);
+			//__pagevec_free(&pages_to_free);
 			pagevec_reinit(&pages_to_free);
   		}
 	}
