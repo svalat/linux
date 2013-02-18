@@ -993,7 +993,7 @@ int zap_huge_pmd(struct mmu_gather *tlb, struct vm_area_struct *vma,
 			add_mm_counter(tlb->mm, anon_rss, -HPAGE_PMD_NR);
 			VM_BUG_ON(!PageHead(page));
 			spin_unlock(&tlb->mm->page_table_lock);
-			tlb_remove_page(tlb, page);
+			tlb_remove_page(NULL,tlb, page);
 			pte_free(tlb->mm, pgtable);
 			ret = 1;
 		}
