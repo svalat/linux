@@ -122,6 +122,7 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 		{
 			//printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
 			free_page_and_swap_cache_plpc(page);
+			VM_BUG_ON(atomic_read(&page->_count) == 0);
 			plpc_reg_page(&vma->vm_mm->plpc,page);
 		} else {
 			//printk(KERN_DEBUG "PLPC - skip page free, not enabled on VMA (%p)",vma);
@@ -143,6 +144,7 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 			if (tlb->nr >= FREE_PTE_NR)
 				tlb_flush_mmu_plpc(tlb, 0, 0);
 			//printk(KERN_DEBUG "PLPC - --> !tlbfastmode : page free, enabled on VMA (%p)",vma);
+			VM_BUG_ON(atomic_read(&page->_count) == 0);
 			plpc_reg_page(&vma->vm_mm->plpc,page);
 	}
 #endif
