@@ -327,7 +327,7 @@ extern void __delete_from_swap_cache(struct page *);
 extern void delete_from_swap_cache(struct page *);
 extern void free_page_and_swap_cache(struct page *);
 extern void free_page_and_swap_cache_plpc(struct page *page);
-extern void free_pages_and_swap_cache(struct page **, int);
+extern void free_pages_and_swap_cache(struct page **, int,struct mmu_gather *tlb);
 extern void free_pages_and_swap_cache_plpc(struct page **pages, int nr);
 extern struct page *lookup_swap_cache(swp_entry_t);
 extern struct page *read_swap_cache_async(swp_entry_t, gfp_t,
@@ -408,8 +408,8 @@ static inline void mem_cgroup_uncharge_swap(swp_entry_t ent)
  * so leave page_cache_release and release_pages undeclared... */
 #define free_page_and_swap_cache(page) \
 	page_cache_release(page)
-#define free_pages_and_swap_cache(pages, nr) \
-	release_pages((pages), (nr), 0);
+#define free_pages_and_swap_cache(pages, nr,tlb) \
+	release_pages((pages), (nr), 0,tlb);
 
 static inline void show_swap_cache_info(void)
 {

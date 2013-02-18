@@ -1123,8 +1123,6 @@ unsigned long unmap_vmas(struct mmu_gather **tlbp,
 				break;
 			}
 
-			if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
-				tlb_flush_mmu_plpc(tlb, 0, 0);
 			tlb_finish_mmu(*tlbp, tlb_start, start);
 
 			if (need_resched() ||

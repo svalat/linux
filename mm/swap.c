@@ -260,7 +260,7 @@ static void pagevec_move_tail(struct pagevec *pvec)
 	if (zone)
 		spin_unlock(&zone->lru_lock);
 	__count_vm_events(PGROTATED, pgmoved);
-	release_pages(pvec->pages, pvec->nr, pvec->cold);
+	release_pages(pvec->pages, pvec->nr, pvec->cold,NULL);
 	pagevec_reinit(pvec);
 }
 
@@ -458,7 +458,7 @@ int lru_add_drain_all(void)
  * grabbed the page via the LRU.  If it did, give up: shrink_inactive_list()
  * will free it.
  */
-void release_pages(struct page **pages, int nr, int cold)
+void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb)
 {
 	int i;
 	struct pagevec pages_to_free;
@@ -495,6 +495,16 @@ void release_pages(struct page **pages, int nr, int cold)
 			__ClearPageLRU(page);
 			del_page_from_lru(zone, page);
 		}
+		
+#ifdef CONFIG_PLPC
+		if (tlb != NULL && tlb->plpc_capture[i] == page && tlb->mm->plpc != NULL)
+		{
+			//tlb->plpc_capture[i] = NULL;
+			//plpc_reg_page(tlb->mm->plpc,page);
+			//skip registration in pagevec to avoid returning it to the system
+			continue;
+		}
+#endif //CONFIG_PLPC
 
 		if (!pagevec_add(&pages_to_free, page)) {
 			if (zone) {
@@ -509,72 +519,17 @@ void release_pages(struct page **pages, int nr, int cold)
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
 
 	pagevec_free(&pages_to_free);
-}
-
-/*
- * Batched page_cache_release().  Decrement the reference count on all the
- * passed pages.  If it fell to zero then remove the page from the LRU and
- * free it.
- *
- * Avoid taking zone->lru_lock if possible, but if it is taken, retain it
- * for the remainder of the operation.
- *
- * The locking in this function is against shrink_inactive_list(): we recheck
- * the page count inside the lock to see whether shrink_inactive_list()
- * grabbed the page via the LRU.  If it did, give up: shrink_inactive_list()
- * will free it.
- */
-void release_pages_plpc(struct page **pages, int nr, int cold)
-{
-	int i;
-	struct pagevec pages_to_free;
-	struct zone *zone = NULL;
-	unsigned long uninitialized_var(flags);
-
-	pagevec_init(&pages_to_free, cold);
+	
+	//put the pages in plpc struct out of irq lock (maybe safer and better for OS)
+	//here, maybe we can optimiser by giving the full list to plpc function to take the lock only
+	//once (TODO).
 	for (i = 0; i < nr; i++) {
-		struct page *page = pages[i];
-
-		if (unlikely(PageCompound(page))) {
-			if (zone) {
-				spin_unlock_irqrestore(&zone->lru_lock, flags);
-				zone = NULL;
-			}
-			put_compound_page(page);
-			continue;
+		if (tlb != NULL && tlb->plpc_capture[i] == page && tlb->mm->plpc != NULL)
+		{
+			tlb->plpc_capture[i] = NULL;
+			plpc_reg_page(tlb->mm->plpc,page);
 		}
-
-		if (!put_page_testzero(page))
-			continue;
-
-		if (PageLRU(page)) {
-			struct zone *pagezone = page_zone(page);
-
-			if (pagezone != zone) {
-				if (zone)
-					spin_unlock_irqrestore(&zone->lru_lock,
-									flags);
-				zone = pagezone;
-				spin_lock_irqsave(&zone->lru_lock, flags);
-			}
-			VM_BUG_ON(!PageLRU(page));
-			__ClearPageLRU(page);
-			del_page_from_lru(zone, page);
-		}
-
-		if (!pagevec_add(&pages_to_free, page)) {
-			if (zone) {
-				spin_unlock_irqrestore(&zone->lru_lock, flags);
-				zone = NULL;
-			}
-			//__pagevec_free(&pages_to_free);
-			pagevec_reinit(&pages_to_free);
-  		}
 	}
-	if (zone)
-		spin_unlock_irqrestore(&zone->lru_lock, flags);
-
-	//pagevec_free(&pages_to_free);
 }
 
 /*
@@ -590,7 +545,7 @@ void release_pages_plpc(struct page **pages, int nr, int cold)
 void __pagevec_release(struct pagevec *pvec)
 {
 	lru_add_drain();
-	release_pages(pvec->pages, pagevec_count(pvec), pvec->cold);
+	release_pages(pvec->pages, pagevec_count(pvec), pvec->cold,NULL);
 	pagevec_reinit(pvec);
 }
 
@@ -669,7 +624,7 @@ void ____pagevec_lru_add(struct pagevec *pvec, enum lru_list lru)
 	}
 	if (zone)
 		spin_unlock_irq(&zone->lru_lock);
-	release_pages(pvec->pages, pvec->nr, pvec->cold);
+	release_pages(pvec->pages, pvec->nr, pvec->cold,NULL);
 	pagevec_reinit(pvec);
 }
 

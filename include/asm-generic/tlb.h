@@ -43,6 +43,9 @@ struct mmu_gather {
 	unsigned int		need_flush;/* Really unmapped some ptes? */
 	unsigned int		fullmm; /* non-zero means full mm flush */
 	struct page *		pages[FREE_PTE_NR];
+#ifdef CONFIG_PLPC
+	struct page *		plpc_capture[FREE_PTE_NR]; /* Need boolean, but as first step, ensure security by checking correct state. */
+#endif
 };
 
 /* Users of the generic TLB shootdown code must declare this storage space. */
@@ -67,27 +70,19 @@ tlb_gather_mmu(struct mm_struct *mm, unsigned int full_mm_flush)
 }
 
 static inline void
-tlb_flush_mmu_plpc(struct mmu_gather *tlb, unsigned long start, unsigned long end)
-{
-	if (!tlb->need_flush)
-		return;
-	tlb->need_flush = 0;
-	tlb_flush(tlb);
-	if (!tlb_fast_mode(tlb)) {
-		free_pages_and_swap_cache_plpc(tlb->pages, tlb->nr);
-		tlb->nr = 0;
-	}
-}
-
-static inline void
 tlb_flush_mmu(struct mmu_gather *tlb, unsigned long start, unsigned long end)
 {
+	int i;
 	if (!tlb->need_flush)
 		return;
 	tlb->need_flush = 0;
 	tlb_flush(tlb);
 	if (!tlb_fast_mode(tlb)) {
-		free_pages_and_swap_cache(tlb->pages, tlb->nr);
+		free_pages_and_swap_cache(tlb->pages, tlb->nr,tlb);
+#ifdef CONFIG_PLPC
+		for (i = 0 ; i < tlb->nr ;i++)
+			tlb->plpc_capture[i] = NULL;
+#endif //CONFIG_PLPC
 		tlb->nr = 0;
 	}
 }
@@ -140,15 +135,19 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 			//no side effects, otherwise wi need to patch tlb_flush_mmu.
 			//get_page(page);
 			//BUG_ON(true);//hummm need to do something here for the non SMT modei
+			tlb->plpc_capture[tlb->nr] = page;
 			tlb->pages[tlb->nr++] = page;
 			if (tlb->nr >= FREE_PTE_NR)
-				tlb_flush_mmu_plpc(tlb, 0, 0);
+				tlb_flush_mmu(tlb, 0, 0);
 			//printk(KERN_DEBUG "PLPC - --> !tlbfastmode : page free, enabled on VMA (%p)",vma);
-			VM_BUG_ON(atomic_read(&page->_count) == 0);
-			plpc_reg_page(&vma->vm_mm->plpc,page);
+			//VM_BUG_ON(atomic_read(&page->_count) == 0);
+			//plpc_reg_page(&vma->vm_mm->plpc,page);
 	}
 #endif
 	else {
+#ifdef CONFIG_PLPC
+		tlb->plpc_capture[tlb->nr] = NULL;
+#endif //CONFIG_PLPC
 		tlb->pages[tlb->nr++] = page;
 		if (tlb->nr >= FREE_PTE_NR)
 			tlb_flush_mmu(tlb, 0, 0);
