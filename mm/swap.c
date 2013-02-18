@@ -512,6 +512,72 @@ void release_pages(struct page **pages, int nr, int cold)
 }
 
 /*
+ * Batched page_cache_release().  Decrement the reference count on all the
+ * passed pages.  If it fell to zero then remove the page from the LRU and
+ * free it.
+ *
+ * Avoid taking zone->lru_lock if possible, but if it is taken, retain it
+ * for the remainder of the operation.
+ *
+ * The locking in this function is against shrink_inactive_list(): we recheck
+ * the page count inside the lock to see whether shrink_inactive_list()
+ * grabbed the page via the LRU.  If it did, give up: shrink_inactive_list()
+ * will free it.
+ */
+void release_pages_plpc(struct page **pages, int nr, int cold)
+{
+	int i;
+	struct pagevec pages_to_free;
+	struct zone *zone = NULL;
+	unsigned long uninitialized_var(flags);
+
+	pagevec_init(&pages_to_free, cold);
+	for (i = 0; i < nr; i++) {
+		struct page *page = pages[i];
+
+		if (unlikely(PageCompound(page))) {
+			if (zone) {
+				spin_unlock_irqrestore(&zone->lru_lock, flags);
+				zone = NULL;
+			}
+			put_compound_page(page);
+			continue;
+		}
+
+		if (!put_page_testzero(page))
+			continue;
+
+		if (PageLRU(page)) {
+			struct zone *pagezone = page_zone(page);
+
+			if (pagezone != zone) {
+				if (zone)
+					spin_unlock_irqrestore(&zone->lru_lock,
+									flags);
+				zone = pagezone;
+				spin_lock_irqsave(&zone->lru_lock, flags);
+			}
+			VM_BUG_ON(!PageLRU(page));
+			__ClearPageLRU(page);
+			del_page_from_lru(zone, page);
+		}
+
+		if (!pagevec_add(&pages_to_free, page)) {
+			if (zone) {
+				spin_unlock_irqrestore(&zone->lru_lock, flags);
+				zone = NULL;
+			}
+			__pagevec_free(&pages_to_free);
+			pagevec_reinit(&pages_to_free);
+  		}
+	}
+	if (zone)
+		spin_unlock_irqrestore(&zone->lru_lock, flags);
+
+	//pagevec_free(&pages_to_free);
+}
+
+/*
  * The pages which we're about to release may be in the deferred lru-addition
  * queues.  That would prevent them from really being freed right now.  That's
  * OK from a correctness point of view but is inefficient - those pages may be

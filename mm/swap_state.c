@@ -268,6 +268,27 @@ void free_pages_and_swap_cache(struct page **pages, int nr)
 }
 
 /*
+ * Passed an array of pages, drop them all from swapcache and then release
+ * them.  They are removed from the LRU and freed if this is their last use.
+ */
+void free_pages_and_swap_cache_plpc(struct page **pages, int nr)
+{
+	struct page **pagep = pages;
+
+	lru_add_drain();
+	while (nr) {
+		int todo = min(nr, PAGEVEC_SIZE);
+		int i;
+
+		for (i = 0; i < todo; i++)
+			free_swap_cache(pagep[i]);
+		release_pages_plpc(pagep, todo, 0);
+		pagep += todo;
+		nr -= todo;
+	}
+}
+
+/*
  * Lookup a swap entry in the swap cache. A found page will be returned
  * unlocked and with its refcount incremented - we rely on the kernel
  * lock getting page table operations atomic even if we drop the page
