@@ -121,8 +121,8 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 		if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
 		{
 			//printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
-			plpc_reg_page(&vma->vm_mm->plpc,page);
 			free_page_and_swap_cache_plpc(page);
+			plpc_reg_page(&vma->vm_mm->plpc,page);
 		} else {
 			//printk(KERN_DEBUG "PLPC - skip page free, not enabled on VMA (%p)",vma);
 			free_page_and_swap_cache(page);
@@ -135,8 +135,6 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 #ifdef CONFIG_PLPC //_SKIPED
 	else if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
 	{
-			//printk(KERN_DEBUG "PLPC - --> !tlbfastmode : page free, enabled on VMA (%p)",vma);
-			plpc_reg_page(&vma->vm_mm->plpc,page);
 			//increase ref counter to avoid a free in tlb_flush_mmu, need to check that their is
 			//no side effects, otherwise wi need to patch tlb_flush_mmu.
 			//get_page(page);
@@ -144,11 +142,15 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 			tlb->pages[tlb->nr++] = page;
 			if (tlb->nr >= FREE_PTE_NR)
 				tlb_flush_mmu_plpc(tlb, 0, 0);
+			//printk(KERN_DEBUG "PLPC - --> !tlbfastmode : page free, enabled on VMA (%p)",vma);
+			plpc_reg_page(&vma->vm_mm->plpc,page);
 	}
 #endif
-	tlb->pages[tlb->nr++] = page;
-	if (tlb->nr >= FREE_PTE_NR)
-		tlb_flush_mmu(tlb, 0, 0);
+	else {
+		tlb->pages[tlb->nr++] = page;
+		if (tlb->nr >= FREE_PTE_NR)
+			tlb_flush_mmu(tlb, 0, 0);
+	}
 }
 
 /**
