@@ -104,20 +104,28 @@ static void __page_cache_release(struct page *page)
 	}
 }
 
+//This is for 2.6.36 official :
 void page_cache_release_plpc(struct page *page)
 {
+	//On 2.6.32 centos, this function is splitted in two part, so, we can
+	//safetly use __page_cache_release, but on other kernel we need to
+	//to the split trick
+	//__page_cache_release(page);
+
 	BUG_ON(PageCompound(page));
-        if (PageLRU(page)) {
-                unsigned long flags;
-                struct zone *zone = page_zone(page);
+	if (PageLRU(page)) {
+		unsigned long flags;
+		struct zone *zone = page_zone(page);
 
 		spin_lock_irqsave(&zone->lru_lock, flags);
 		VM_BUG_ON(!PageLRU(page));
 		__ClearPageLRU(page);
 		del_page_from_lru(zone, page);
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
-       }
-       //free_hot_cold_page(page, 0);
+	}
+
+	//we skip this (let comment to remind)
+	//free_hot_cold_page(page, 0);
 }
 
 static void __put_single_page(struct page *page)
@@ -127,15 +135,6 @@ static void __put_single_page(struct page *page)
 }
 
 static void __put_compound_page(struct page *page)
-		spin_lock_irqsave(&zone->lru_lock, flags);
-		VM_BUG_ON(!PageLRU(page));
-		__ClearPageLRU(page);
-		del_page_from_lru(zone, page);
-		spin_unlock_irqrestore(&zone->lru_lock, flags);
-       }
-       //free_hot_cold_page(page, 0);
-}
-
 {
 	compound_page_dtor *dtor;
 

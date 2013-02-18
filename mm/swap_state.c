@@ -242,7 +242,8 @@ void free_page_and_swap_cache(struct page *page)
 void free_page_and_swap_cache_plpc(struct page *page)
 {
 	free_swap_cache(page);
-        page_cache_release_plpc(page);
+	//use the plpc variant which didn't return the page in the cache.
+	page_cache_release_plpc(page);
 }
 
 /*

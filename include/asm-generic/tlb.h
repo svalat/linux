@@ -135,7 +135,7 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 #ifdef CONFIG_PLPC //_SKIPED
 	else if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
 	{
-			printk(KERN_DEBUG "PLPC - --> !tlbfastmode : page free, enabled on VMA (%p)",vma);
+			//printk(KERN_DEBUG "PLPC - --> !tlbfastmode : page free, enabled on VMA (%p)",vma);
 			plpc_reg_page(&vma->vm_mm->plpc,page);
 			//increase ref counter to avoid a free in tlb_flush_mmu, need to check that their is
 			//no side effects, otherwise wi need to patch tlb_flush_mmu.

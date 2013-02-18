@@ -105,7 +105,7 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 	if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
 	{
 		//BUG_ON(true);
-		printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
+		//printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
 		plpc_reg_page(&vma->vm_mm->plpc,page);
 		//get_page(page);
 		free_page_and_swap_cache_plpc(page);

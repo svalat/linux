@@ -35,7 +35,7 @@ struct page * plpc_get_internal_page(struct plpc * plpc);
 struct page * plpc_get_page(struct plpc * plpc,struct vm_area_struct *vma,unsigned long vaddr);
 void plpc_reg_page(struct plpc * plpc,struct page * page);
 
-#define PLPC_DEBUG(str,args...) printk(KERN_DEBUG "PLPC - " str,##args);
-//#define PLPC_DEBUG(str,args...) do {} while(0)
+//#define PLPC_DEBUG(str,args...) printk(KERN_DEBUG "PLPC - " str,##args);
+#define PLPC_DEBUG(str,args...) do {} while(0)
 
 #endif //LINUX_MM_PLPC_H
