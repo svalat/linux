@@ -138,8 +138,17 @@ static void __put_single_page(struct page *page)
 static void __put_compound_page(struct page *page)
 {
 	compound_page_dtor *dtor;
-
 	__page_cache_release(page);
+#ifdef CONFIG_PLPC
+	if (PageReuse(page))
+	{
+		printk(KERN_DEBUG "OKOKOK => can capture huge pages here");
+		SetPageReuse(page);
+		atomic_inc(&page->_count);
+		plpc_reg_huge_page(&get_current()->mm->plpc,page);
+		return;
+	}
+#endif
 	dtor = get_compound_page_dtor(page);
 	(*dtor)(page);
 }
