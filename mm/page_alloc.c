@@ -1152,8 +1152,20 @@ static void free_hot_cold_page(struct page *page, int cold)
 	unsigned long flags;
 	int migratetype;
 	int wasMlocked = __TestClearPageMlocked(page);
+#ifdef CONFIG_PLPC
+	int reuse = 0;
+#endif
 
 	kmemcheck_free_shadow(page, 0);
+	
+#ifdef CONFIG_PLPC
+	if (PageReuse(page))
+	{
+		PLPC_DEBUG("OK, before capture the page... vm = %p",get_current()->mm);
+		reuse = 1;
+		ClearPageReuse(page);
+	}
+#endif
 
 	if (PageAnon(page))
 		page->mapping = NULL;
@@ -1161,10 +1173,11 @@ static void free_hot_cold_page(struct page *page, int cold)
 		return;
 	
 #ifdef CONFIG_PLPC
-	if (PageReuse(page))
+	if (PageReuse(page) || reuse)
 	{
+		SetPageReuse(page);
 		atomic_inc(&page->_count);
-		PLPC_DEBUG("OK, capture the page...");
+		PLPC_DEBUG("OK, capture the page... %p",page);
 		plpc_reg_page(&get_current()->mm->plpc,page);
 		return;
 	}
