@@ -499,7 +499,7 @@ void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb
 		}
 		
 #ifdef CONFIG_PLPC
-		if (tlb != NULL)
+		/*if (tlb != NULL)
 		{
 			if (tlb->plpc_capture[i] == page && tlb->mm != NULL)
 			{
@@ -511,7 +511,7 @@ void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb
 			} else {
 				tlb->plpc_capture[i] = NULL;
 			}
-		}
+		}*/
 #endif //CONFIG_PLPC
 
 		if (!pagevec_add(&pages_to_free, page)) {
@@ -532,14 +532,14 @@ void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb
 	//put the pages in plpc struct out of irq lock (maybe safer and better for OS)
 	//here, maybe we can optimiser by giving the full list to plpc function to take the lock only
 	//once (TODO).
-	if (tlb != NULL)
+	/*if (tlb != NULL)
 	for (i = 0; i < nr; i++) {
 		if (tlb->plpc_capture[i] != NULL && tlb->mm != NULL)
 		{
 			plpc_reg_page(&tlb->mm->plpc,tlb->plpc_capture[i]);
 			tlb->plpc_capture[i] = NULL;
 		}
-	}
+	}*/
 #endif //CONFIG_PLPC
 }
 

@@ -111,6 +111,9 @@ enum pageflags {
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	PG_compound_lock,
 #endif
+#ifdef CONFIG_PLPC
+	PG_reuse,
+#endif //CONFIG_PLPC
 	__NR_PAGEFLAGS,
 
 	/* Filesystems */
@@ -214,6 +217,10 @@ PAGEFLAG(Pinned, pinned) TESTSCFLAG(Pinned, pinned)	/* Xen */
 PAGEFLAG(SavePinned, savepinned);			/* Xen */
 PAGEFLAG(Reserved, reserved) __CLEARPAGEFLAG(Reserved, reserved)
 PAGEFLAG(SwapBacked, swapbacked) __CLEARPAGEFLAG(SwapBacked, swapbacked)
+
+#ifdef CONFIG_PLPC
+PAGEFLAG(Reuse, reuse)
+#endif
 
 __PAGEFLAG(SlobFree, slob_free)
 
@@ -423,6 +430,12 @@ static inline void ClearPageCompound(struct page *page)
 #define __PG_COMPOUND_LOCK		0
 #endif
 
+#ifdef CONFIG_PLPC
+#define __PG_REUSE				(1 << PG_reuse)
+#else
+#define __PG_REUSE              0
+#endif
+
 /*
  * Flags checked when a page is freed.  Pages being freed should not have
  * these flags set.  It they are, there is a problem.
@@ -433,7 +446,7 @@ static inline void ClearPageCompound(struct page *page)
 	 1 << PG_buddy	 | 1 << PG_writeback | 1 << PG_reserved | \
 	 1 << PG_slab	 | 1 << PG_swapcache | 1 << PG_active | \
 	 1 << PG_unevictable | __PG_MLOCKED | __PG_HWPOISON | \
-	 __PG_COMPOUND_LOCK)
+	 __PG_COMPOUND_LOCK | __PG_REUSE)
 
 /*
  * Flags checked when a page is prepped for return by the page allocator.

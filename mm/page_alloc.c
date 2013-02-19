@@ -1159,6 +1159,16 @@ static void free_hot_cold_page(struct page *page, int cold)
 		page->mapping = NULL;
 	if (free_pages_check(page))
 		return;
+	
+#ifdef CONFIG_PLPC
+	if (PageReuse(page))
+	{
+		atomic_inc(&page->_count);
+		PLPC_DEBUG("OK, capture the page...");
+		plpc_reg_page(&get_current()->mm->plpc,page);
+		return;
+	}
+#endif
 
 	if (!PageHighMem(page)) {
 		debug_check_no_locks_freed(page_address(page), PAGE_SIZE);

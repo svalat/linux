@@ -13,6 +13,7 @@
 #include <linux/list.h>
 #include <linux/swap.h>
 #include <linux/highmem.h>
+#include <asm/bug.h>
 
 //TODO rename into mm_plpc
 //TODO rename functions into mm_plpc_*
@@ -132,6 +133,9 @@ struct page * plpc_get_page(struct plpc * plpc,struct vm_area_struct *vma,unsign
 		//TODO tmp test
 		//page = alloc_page_vma(GFP_HIGHUSER | __GFP_MOVABLE,vma,vaddr);
 		PLPC_DEBUG("Finally get page from kernel %p",page);
+	} else {
+		BUG_ON(!PageReuse(page));
+		ClearPageReuse(page);
 	}
 
 	return page;

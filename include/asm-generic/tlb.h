@@ -135,6 +135,7 @@ static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather 
 			//no side effects, otherwise wi need to patch tlb_flush_mmu.
 			//get_page(page);
 			//BUG_ON(true);//hummm need to do something here for the non SMT modei
+			SetPageReuse(page);
 			tlb->plpc_capture[tlb->nr] = page;
 			tlb->pages[tlb->nr++] = page;
 			if (tlb->nr >= FREE_PTE_NR)
