@@ -72,17 +72,17 @@ tlb_gather_mmu(struct mm_struct *mm, unsigned int full_mm_flush)
 static inline void
 tlb_flush_mmu(struct mmu_gather *tlb, unsigned long start, unsigned long end)
 {
-	int i;
+	//int i;
 	if (!tlb->need_flush)
 		return;
 	tlb->need_flush = 0;
 	tlb_flush(tlb);
 	if (!tlb_fast_mode(tlb)) {
 		free_pages_and_swap_cache(tlb->pages, tlb->nr,tlb);
-#ifdef CONFIG_PLPC
+/*#ifdef CONFIG_PLPC
 		for (i = 0 ; i < tlb->nr ;i++)
 			tlb->plpc_capture[i] = NULL;
-#endif //CONFIG_PLPC
+#endif //CONFIG_PLPC*/
 		tlb->nr = 0;
 	}
 }

@@ -30,6 +30,7 @@
 #include <linux/notifier.h>
 #include <linux/backing-dev.h>
 #include <linux/memcontrol.h>
+#include <asm/tlb.h>
 
 #include "internal.h"
 
@@ -464,10 +465,11 @@ void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb
 	struct pagevec pages_to_free;
 	struct zone *zone = NULL;
 	unsigned long uninitialized_var(flags);
+	struct page *page;
 
 	pagevec_init(&pages_to_free, cold);
 	for (i = 0; i < nr; i++) {
-		struct page *page = pages[i];
+		page = pages[i];
 
 		if (unlikely(PageCompound(page))) {
 			if (zone) {
@@ -497,12 +499,18 @@ void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb
 		}
 		
 #ifdef CONFIG_PLPC
-		if (tlb != NULL && tlb->plpc_capture[i] == page && tlb->mm->plpc != NULL)
+		if (tlb != NULL)
 		{
-			//tlb->plpc_capture[i] = NULL;
-			//plpc_reg_page(tlb->mm->plpc,page);
-			//skip registration in pagevec to avoid returning it to the system
-			continue;
+			if (tlb->plpc_capture[i] == page && tlb->mm != NULL)
+			{
+				//tlb->plpc_capture[i] = NULL;
+				//plpc_reg_page(tlb->mm->plpc,page);
+				//skip registration in pagevec to avoid returning it to the system
+				atomic_inc(&page->_count);
+				continue;
+			} else {
+				tlb->plpc_capture[i] = NULL;
+			}
 		}
 #endif //CONFIG_PLPC
 
@@ -520,16 +528,19 @@ void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb
 
 	pagevec_free(&pages_to_free);
 	
+#ifdef CONFIG_PLPC
 	//put the pages in plpc struct out of irq lock (maybe safer and better for OS)
 	//here, maybe we can optimiser by giving the full list to plpc function to take the lock only
 	//once (TODO).
+	if (tlb != NULL)
 	for (i = 0; i < nr; i++) {
-		if (tlb != NULL && tlb->plpc_capture[i] == page && tlb->mm->plpc != NULL)
+		if (tlb->plpc_capture[i] != NULL && tlb->mm != NULL)
 		{
+			plpc_reg_page(&tlb->mm->plpc,tlb->plpc_capture[i]);
 			tlb->plpc_capture[i] = NULL;
-			plpc_reg_page(tlb->mm->plpc,page);
 		}
 	}
+#endif //CONFIG_PLPC
 }
 
 /*
