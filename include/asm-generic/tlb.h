@@ -14,7 +14,6 @@
 #define _ASM_GENERIC__TLB_H
 
 #include <linux/swap.h>
-#include <linux/mm_plpc.h>
 #include <asm/pgalloc.h>
 #include <asm/tlbflush.h>
 
@@ -43,9 +42,6 @@ struct mmu_gather {
 	unsigned int		need_flush;/* Really unmapped some ptes? */
 	unsigned int		fullmm; /* non-zero means full mm flush */
 	struct page *		pages[FREE_PTE_NR];
-#ifdef CONFIG_PLPC
-	struct page *		plpc_capture[FREE_PTE_NR]; /* Need boolean, but as first step, ensure security by checking correct state. */
-#endif
 };
 
 /* Users of the generic TLB shootdown code must declare this storage space. */
@@ -72,17 +68,12 @@ tlb_gather_mmu(struct mm_struct *mm, unsigned int full_mm_flush)
 static inline void
 tlb_flush_mmu(struct mmu_gather *tlb, unsigned long start, unsigned long end)
 {
-	//int i;
 	if (!tlb->need_flush)
 		return;
 	tlb->need_flush = 0;
 	tlb_flush(tlb);
 	if (!tlb_fast_mode(tlb)) {
-		free_pages_and_swap_cache(tlb->pages, tlb->nr,tlb);
-/*#ifdef CONFIG_PLPC
-		for (i = 0 ; i < tlb->nr ;i++)
-			tlb->plpc_capture[i] = NULL;
-#endif //CONFIG_PLPC*/
+		free_pages_and_swap_cache(tlb->pages, tlb->nr);
 		tlb->nr = 0;
 	}
 }
@@ -107,53 +98,16 @@ tlb_finish_mmu(struct mmu_gather *tlb, unsigned long start, unsigned long end)
  *	handling the additional races in SMP caused by other CPUs caching valid
  *	mappings in their TLBs.
  */
-static inline void tlb_remove_page(struct vm_area_struct *vma,struct mmu_gather *tlb, struct page *page)
+static inline void tlb_remove_page(struct mmu_gather *tlb, struct page *page)
 {
 	tlb->need_flush = 1;
 	if (tlb_fast_mode(tlb)) {
-#ifdef CONFIG_PLPC //_SKIPED
-	//TODO avoid dupolication here
-		if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL)
-		{
-			//printk(KERN_DEBUG "PLPC - page free, enabled on VMA (%p)",vma);
-			free_page_and_swap_cache_plpc(page);
-			VM_BUG_ON(atomic_read(&page->_count) == 0);
-			plpc_reg_page(&vma->vm_mm->plpc,page);
-		} else {
-			//printk(KERN_DEBUG "PLPC - skip page free, not enabled on VMA (%p)",vma);
-			free_page_and_swap_cache(page);
-		}
-#else
 		free_page_and_swap_cache(page);
-#endif
 		return;
 	}
-#ifdef CONFIG_PLPC //_SKIPED
-	else if (vma != NULL && vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm != NULL && vma->vm_mm == get_current()->mm)
-	{
-			//increase ref counter to avoid a free in tlb_flush_mmu, need to check that their is
-			//no side effects, otherwise wi need to patch tlb_flush_mmu.
-			//get_page(page);
-			//BUG_ON(true);//hummm need to do something here for the non SMT modei
-			SetPageReuse(page);
-			tlb->plpc_capture[tlb->nr] = page;
-			tlb->pages[tlb->nr++] = page;
-			BUG_ON(get_current()->mm != vma->vm_mm);
-			if (tlb->nr >= FREE_PTE_NR)
-				tlb_flush_mmu(tlb, 0, 0);
-			//printk(KERN_DEBUG "PLPC - --> !tlbfastmode : page free, enabled on VMA (%p)",vma);
-			//VM_BUG_ON(atomic_read(&page->_count) == 0);
-			//plpc_reg_page(&vma->vm_mm->plpc,page);
-	}
-#endif
-	else {
-#ifdef CONFIG_PLPC
-		tlb->plpc_capture[tlb->nr] = NULL;
-#endif //CONFIG_PLPC
-		tlb->pages[tlb->nr++] = page;
-		if (tlb->nr >= FREE_PTE_NR)
-			tlb_flush_mmu(tlb, 0, 0);
-	}
+	tlb->pages[tlb->nr++] = page;
+	if (tlb->nr >= FREE_PTE_NR)
+		tlb_flush_mmu(tlb, 0, 0);
 }
 
 /**

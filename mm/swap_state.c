@@ -235,22 +235,11 @@ void free_page_and_swap_cache(struct page *page)
 	page_cache_release(page);
 }
 
-/* 
- *  * Perform a free_page(), also freeing any swap cache associated with
- *   * this page if it is the last user of the page.
- *    */
-void free_page_and_swap_cache_plpc(struct page *page)
-{
-	free_swap_cache(page);
-	//use the plpc variant which didn't return the page in the cache.
-	page_cache_release_plpc(page);
-}
-
 /*
  * Passed an array of pages, drop them all from swapcache and then release
  * them.  They are removed from the LRU and freed if this is their last use.
  */
-void free_pages_and_swap_cache(struct page **pages, int nr,struct mmu_gather * tlb)
+void free_pages_and_swap_cache(struct page **pages, int nr)
 {
 	struct page **pagep = pages;
 
@@ -261,7 +250,7 @@ void free_pages_and_swap_cache(struct page **pages, int nr,struct mmu_gather * t
 
 		for (i = 0; i < todo; i++)
 			free_swap_cache(pagep[i]);
-		release_pages(pagep, todo, 0,tlb);
+		release_pages(pagep, todo, 0);
 		pagep += todo;
 		nr -= todo;
 	}

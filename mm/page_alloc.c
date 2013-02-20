@@ -1159,6 +1159,7 @@ static void free_hot_cold_page(struct page *page, int cold)
 	kmemcheck_free_shadow(page, 0);
 	
 #ifdef CONFIG_PLPC
+	//TODO avoid this two phase approach, need check free_page_check to not remove the page flag.
 	if (PageReuse(page))
 	{
 		PLPC_DEBUG("OK, before capture the page... vm = %p",get_current()->mm);

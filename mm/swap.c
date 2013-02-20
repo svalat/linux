@@ -30,7 +30,6 @@
 #include <linux/notifier.h>
 #include <linux/backing-dev.h>
 #include <linux/memcontrol.h>
-#include <asm/tlb.h>
 
 #include "internal.h"
 
@@ -103,30 +102,6 @@ static void __page_cache_release(struct page *page)
 		del_page_from_lru(zone, page);
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
 	}
-}
-
-//This is for 2.6.36 official :
-void page_cache_release_plpc(struct page *page)
-{
-	//On 2.6.32 centos, this function is splitted in two part, so, we can
-	//safetly use __page_cache_release, but on other kernel we need to
-	//to the split trick
-	//__page_cache_release(page);
-
-	BUG_ON(PageCompound(page));
-	if (PageLRU(page)) {
-		unsigned long flags;
-		struct zone *zone = page_zone(page);
-
-		spin_lock_irqsave(&zone->lru_lock, flags);
-		VM_BUG_ON(!PageLRU(page));
-		__ClearPageLRU(page);
-		del_page_from_lru(zone, page);
-		spin_unlock_irqrestore(&zone->lru_lock, flags);
-	}
-
-	//we skip this (let comment to remind)
-	//free_hot_cold_page(page, 0);
 }
 
 static void __put_single_page(struct page *page)
@@ -270,7 +245,7 @@ static void pagevec_move_tail(struct pagevec *pvec)
 	if (zone)
 		spin_unlock(&zone->lru_lock);
 	__count_vm_events(PGROTATED, pgmoved);
-	release_pages(pvec->pages, pvec->nr, pvec->cold,NULL);
+	release_pages(pvec->pages, pvec->nr, pvec->cold);
 	pagevec_reinit(pvec);
 }
 
@@ -468,7 +443,7 @@ int lru_add_drain_all(void)
  * grabbed the page via the LRU.  If it did, give up: shrink_inactive_list()
  * will free it.
  */
-void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb)
+void release_pages(struct page **pages, int nr, int cold)
 {
 	int i;
 	struct pagevec pages_to_free;
@@ -506,22 +481,6 @@ void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb
 			__ClearPageLRU(page);
 			del_page_from_lru(zone, page);
 		}
-		
-#ifdef CONFIG_PLPC
-		/*if (tlb != NULL)
-		{
-			if (tlb->plpc_capture[i] == page && tlb->mm != NULL)
-			{
-				//tlb->plpc_capture[i] = NULL;
-				//plpc_reg_page(tlb->mm->plpc,page);
-				//skip registration in pagevec to avoid returning it to the system
-				atomic_inc(&page->_count);
-				continue;
-			} else {
-				tlb->plpc_capture[i] = NULL;
-			}
-		}*/
-#endif //CONFIG_PLPC
 
 		if (!pagevec_add(&pages_to_free, page)) {
 			if (zone) {
@@ -536,20 +495,6 @@ void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
 
 	pagevec_free(&pages_to_free);
-	
-#ifdef CONFIG_PLPC
-	//put the pages in plpc struct out of irq lock (maybe safer and better for OS)
-	//here, maybe we can optimiser by giving the full list to plpc function to take the lock only
-	//once (TODO).
-	/*if (tlb != NULL)
-	for (i = 0; i < nr; i++) {
-		if (tlb->plpc_capture[i] != NULL && tlb->mm != NULL)
-		{
-			plpc_reg_page(&tlb->mm->plpc,tlb->plpc_capture[i]);
-			tlb->plpc_capture[i] = NULL;
-		}
-	}*/
-#endif //CONFIG_PLPC
 }
 
 /*
@@ -565,7 +510,7 @@ void release_pages(struct page **pages, int nr, int cold,struct mmu_gather * tlb
 void __pagevec_release(struct pagevec *pvec)
 {
 	lru_add_drain();
-	release_pages(pvec->pages, pagevec_count(pvec), pvec->cold,NULL);
+	release_pages(pvec->pages, pagevec_count(pvec), pvec->cold);
 	pagevec_reinit(pvec);
 }
 
@@ -644,7 +589,7 @@ void ____pagevec_lru_add(struct pagevec *pvec, enum lru_list lru)
 	}
 	if (zone)
 		spin_unlock_irq(&zone->lru_lock);
-	release_pages(pvec->pages, pvec->nr, pvec->cold,NULL);
+	release_pages(pvec->pages, pvec->nr, pvec->cold);
 	pagevec_reinit(pvec);
 }
 

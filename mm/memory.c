@@ -903,7 +903,12 @@ static unsigned long zap_pte_range(struct mmu_gather *tlb,
 			page_remove_rmap(page);
 			if (unlikely(page_mapcount(page) < 0))
 				print_bad_pte(vma, addr, ptent, page);
-			tlb_remove_page(vma,tlb, page);
+#ifdef CONFIG_PLPC
+			if (vma->vm_flags & VM_PAGE_REUSE && vma->vm_mm == get_current()->mm)
+				SetPageReuse(page);
+#endif
+			
+			tlb_remove_page(tlb, page);
 			continue;
 		}
 		/*
