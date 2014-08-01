@@ -147,15 +147,23 @@ int register_qdisc(struct Qdisc_ops *qops)
 	if (qops->enqueue == NULL)
 		qops->enqueue = noop_qdisc_ops.enqueue;
 	if (qops->peek == NULL) {
-		if (qops->dequeue == NULL) {
+		if (qops->dequeue == NULL)
 			qops->peek = noop_qdisc_ops.peek;
-		} else {
-			rc = -EINVAL;
-			goto out;
-		}
+		else
+			goto out_einval;
 	}
 	if (qops->dequeue == NULL)
 		qops->dequeue = noop_qdisc_ops.dequeue;
+
+	if (qops->cl_ops) {
+		const struct Qdisc_class_ops *cops = qops->cl_ops;
+
+		if (!(cops->get && cops->put))
+			goto out_einval;
+
+		if (cops->tcf_chain && !(cops->bind_tcf && cops->unbind_tcf))
+			goto out_einval;
+	}
 
 	qops->next = NULL;
 	*qp = qops;
@@ -163,6 +171,10 @@ int register_qdisc(struct Qdisc_ops *qops)
 out:
 	write_unlock(&qdisc_mod_lock);
 	return rc;
+
+out_einval:
+	rc = -EINVAL;
+	goto out;
 }
 EXPORT_SYMBOL(register_qdisc);
 
@@ -594,20 +606,24 @@ void qdisc_class_hash_remove(struct Qdisc_class_hash *clhash,
 }
 EXPORT_SYMBOL(qdisc_class_hash_remove);
 
-/* Allocate an unique handle from space managed by kernel */
-
+/* Allocate an unique handle from space managed by kernel
+ * Possible range is [8000-FFFF]:0000 (0x8000 values)
+ */
 static u32 qdisc_alloc_handle(struct net_device *dev)
 {
-	int i = 0x10000;
+	int i = 0x8000;
 	static u32 autohandle = TC_H_MAKE(0x80000000U, 0);
 
 	do {
 		autohandle += TC_H_MAKE(0x10000U, 0);
 		if (autohandle == TC_H_MAKE(TC_H_ROOT, 0))
 			autohandle = TC_H_MAKE(0x80000000U, 0);
-	} while	(qdisc_lookup(dev, autohandle) && --i > 0);
+		if (!qdisc_lookup(dev, autohandle))
+			return autohandle;
+		cond_resched();
+	} while	(--i > 0);
 
-	return i>0 ? autohandle : 0;
+	return 0;
 }
 
 void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
@@ -1195,6 +1211,11 @@ nla_put_failure:
 	return -1;
 }
 
+static bool tc_qdisc_dump_ignore(struct Qdisc *q)
+{
+	return (q->flags & TCQ_F_BUILTIN) ? true : false;
+}
+
 static int qdisc_notify(struct sk_buff *oskb, struct nlmsghdr *n,
 			u32 clid, struct Qdisc *old, struct Qdisc *new)
 {
@@ -1205,11 +1226,11 @@ static int qdisc_notify(struct sk_buff *oskb, struct nlmsghdr *n,
 	if (!skb)
 		return -ENOBUFS;
 
-	if (old && old->handle) {
+	if (old && !tc_qdisc_dump_ignore(old)) {
 		if (tc_fill_qdisc(skb, old, clid, pid, n->nlmsg_seq, 0, RTM_DELQDISC) < 0)
 			goto err_out;
 	}
-	if (new) {
+	if (new && !tc_qdisc_dump_ignore(new)) {
 		if (tc_fill_qdisc(skb, new, clid, pid, n->nlmsg_seq, old ? NLM_F_REPLACE : 0, RTM_NEWQDISC) < 0)
 			goto err_out;
 	}
@@ -1220,11 +1241,6 @@ static int qdisc_notify(struct sk_buff *oskb, struct nlmsghdr *n,
 err_out:
 	kfree_skb(skb);
 	return -EINVAL;
-}
-
-static bool tc_qdisc_dump_ignore(struct Qdisc *q)
-{
-	return (q->flags & TCQ_F_BUILTIN) ? true : false;
 }
 
 static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,

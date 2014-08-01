@@ -27,6 +27,7 @@
 #include <linux/sched.h>
 #include <linux/prctl.h>
 #include <linux/securebits.h>
+#include <linux/personality.h>
 
 /*
  * If a non-root user executes a setuid-root binary in
@@ -464,6 +465,15 @@ static inline int cap_limit_ptraced_target(void)
 	return 1;
 }
 
+/* should pE in /sbin/init be boundable? */
+static int caps_bound_init;
+static int __init set_bound_init(char *str)
+{
+	caps_bound_init = 1;
+	return 1;
+}
+__setup("caps_bound_init", set_bound_init);
+
 /**
  * cap_bprm_set_creds - Set up the proposed credentials for execve().
  * @bprm: The execution parameters, including the proposed creds
@@ -511,6 +521,11 @@ int cap_bprm_set_creds(struct linux_binprm *bprm)
 	}
 skip:
 
+	/* if we have fs caps, clear dangerous personality flags */
+	if (!cap_issubset(new->cap_permitted, old->cap_permitted))
+		bprm->per_clear |= PER_CLEAR_ON_SETID;
+
+
 	/* Don't let someone trace a set[ug]id/setpcap binary with the revised
 	 * credentials unless they have the appropriate permit
 	 */
@@ -534,7 +549,7 @@ skip:
 	/* For init, we want to retain the capabilities set in the initial
 	 * task.  Thus we skip the usual capability rules
 	 */
-	if (!is_global_init(current)) {
+	if (caps_bound_init || !is_global_init(current)) {
 		if (effective)
 			new->cap_effective = new->cap_permitted;
 		else
@@ -962,6 +977,9 @@ error:
  */
 int cap_syslog(int type)
 {
+	if (dmesg_restrict && !capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if ((type != 3 && type != 10) && !capable(CAP_SYS_ADMIN))
 		return -EPERM;
 	return 0;

@@ -52,6 +52,9 @@
 #include <asm/cpu.h>
 #include "entry.h"
 
+/* logical cpu to cpu address */
+int __cpu_logical_map[NR_CPUS];
+
 static struct task_struct *current_set[NR_CPUS];
 
 static u8 smp_cpu_type;
@@ -124,6 +127,9 @@ static void do_ext_call_interrupt(__u16 code)
 	 * is done automatically when we return from the interrupt.
 	 */
 	bits = xchg(&S390_lowcore.ext_call_fast, 0);
+
+	if (test_bit(ec_schedule, &bits))
+		scheduler_ipi();
 
 	if (test_bit(ec_call_function, &bits))
 		generic_smp_call_function_interrupt();
@@ -268,9 +274,9 @@ static void __init smp_get_save_area(unsigned int cpu, unsigned int phy_cpu)
 	while (signal_processor(CPU_INIT_NO, sigp_stop_and_store_status) ==
 	       sigp_busy)
 		cpu_relax();
-	memcpy(zfcpdump_save_areas[cpu],
-	       (void *)(unsigned long) store_prefix() + SAVE_AREA_BASE,
-	       SAVE_AREA_SIZE);
+	memcpy_real(zfcpdump_save_areas[cpu],
+		    (void *)(unsigned long) store_prefix() + SAVE_AREA_BASE,
+		    SAVE_AREA_SIZE);
 #ifdef CONFIG_64BIT
 	/* copy original prefix register */
 	zfcpdump_save_areas[cpu]->s390x.pref_reg = zfcpdump_prefix_array[cpu];
@@ -564,6 +570,7 @@ int __cpuinit __cpu_up(unsigned int cpu)
 	sf->gprs[9] = (unsigned long) sf;
 	cpu_lowcore->save_area[15] = (unsigned long) sf;
 	__ctl_store(cpu_lowcore->cregs_save_area, 0, 15);
+	atomic_inc(&init_mm.context.attach_count);
 	asm volatile(
 		"	stam	0,15,0(%0)"
 		: : "a" (&cpu_lowcore->access_regs_save_area) : "memory");
@@ -640,6 +647,7 @@ void __cpu_die(unsigned int cpu)
 	while (signal_processor_p(0, cpu, sigp_set_prefix) == sigp_busy)
 		udelay(10);
 	smp_free_lowcore(cpu);
+	atomic_dec(&init_mm.context.attach_count);
 	pr_info("Processor %d stopped\n", cpu);
 }
 

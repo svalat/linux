@@ -29,6 +29,8 @@
 #include <linux/completion.h>
 #include <linux/mutex.h>
 
+#include <trace/events/power.h>
+
 #define dprintk(msg...) cpufreq_debug_printk(CPUFREQ_DEBUG_CORE, \
 						"cpufreq-core", msg)
 
@@ -354,6 +356,7 @@ void cpufreq_notify_transition(struct cpufreq_freqs *freqs, unsigned int state)
 
 	case CPUFREQ_POSTCHANGE:
 		adjust_jiffies(CPUFREQ_POSTCHANGE, freqs);
+                trace_power_frequency(POWER_PSTATE, freqs->new, freqs->cpu);
 		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
 				CPUFREQ_POSTCHANGE, freqs);
 		if (likely(policy) && likely(policy->cpu == freqs->cpu))
@@ -750,7 +753,7 @@ static void cpufreq_sysfs_release(struct kobject *kobj)
 	complete(&policy->kobj_unregister);
 }
 
-static struct sysfs_ops sysfs_ops = {
+static const struct sysfs_ops sysfs_ops = {
 	.show	= show,
 	.store	= store,
 };
@@ -1263,6 +1266,26 @@ unsigned int cpufreq_quick_get(unsigned int cpu)
 	return ret_freq;
 }
 EXPORT_SYMBOL(cpufreq_quick_get);
+
+/**
+ * cpufreq_quick_get_max - get the max reported CPU frequency for this CPU
+ * @cpu: CPU number
+ *
+ * Just return the max possible frequency for a given CPU.
+ */
+unsigned int cpufreq_quick_get_max(unsigned int cpu)
+{
+	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+	unsigned int ret_freq = 0;
+
+	if (policy) {
+		ret_freq = policy->max;
+		cpufreq_cpu_put(policy);
+	}
+
+	return ret_freq;
+}
+EXPORT_SYMBOL(cpufreq_quick_get_max);
 
 
 static unsigned int __cpufreq_get(unsigned int cpu)

@@ -142,7 +142,10 @@ struct snd_card {
 	struct mutex power_lock;	/* power lock */
 	wait_queue_head_t power_sleep;
 #endif
+};
 
+struct snd_card_oss {
+	struct snd_card card;
 #if defined(CONFIG_SND_MIXER_OSS) || defined(CONFIG_SND_MIXER_OSS_MODULE)
 	struct snd_mixer_oss *mixer_oss;
 	int mixer_oss_change_count;
@@ -458,5 +461,8 @@ struct snd_pci_quirk {
 const struct snd_pci_quirk *
 snd_pci_quirk_lookup(struct pci_dev *pci, const struct snd_pci_quirk *list);
 
+const struct snd_pci_quirk *
+snd_pci_quirk_lookup_id(u16 vendor, u16 device,
+			const struct snd_pci_quirk *list);
 
 #endif /* __SOUND_CORE_H */
